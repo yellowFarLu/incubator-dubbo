@@ -51,7 +51,7 @@ import java.util.concurrent.TimeoutException;
  */
 public class RedisProtocol extends AbstractProtocol {
 
-    public static final int DEFAULT_PORT = 6379;
+    private static final int DEFAULT_PORT = 6379;
 
     @Override
     public int getDefaultPort() {

@@ -35,6 +35,14 @@ public abstract class AbstractProxyFactory implements ProxyFactory {
         return getProxy(invoker, false);
     }
 
+    /**
+     * 获取代理
+     * @param invoker
+     * @param generic
+     * @param <T>
+     * @return
+     * @throws RpcException
+     */
     @Override
     public <T> T getProxy(Invoker<T> invoker, boolean generic) throws RpcException {
         Class<?>[] interfaces = null;
@@ -52,6 +60,7 @@ public abstract class AbstractProxyFactory implements ProxyFactory {
             }
         }
         if (interfaces == null) {
+            // 获取接口
             interfaces = new Class<?>[]{invoker.getInterface(), EchoService.class};
         }
 

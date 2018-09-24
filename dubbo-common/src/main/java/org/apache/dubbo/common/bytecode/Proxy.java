@@ -88,6 +88,7 @@ public abstract class Proxy {
 
             Class<?> tmp = null;
             try {
+                // 这里是让JVM查询并加载指定类
                 tmp = Class.forName(itf, false, cl);
             } catch (ClassNotFoundException e) {
             }

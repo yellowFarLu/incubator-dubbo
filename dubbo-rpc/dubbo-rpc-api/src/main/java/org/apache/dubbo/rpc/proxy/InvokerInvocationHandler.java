@@ -25,6 +25,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 
 /**
+ * dubbo使用JDK动态代理，对接口对象进行注入
  * InvokerHandler
  */
 public class InvokerInvocationHandler implements InvocationHandler {

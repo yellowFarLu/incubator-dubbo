@@ -22,6 +22,7 @@ public class AtomicPositiveInteger extends Number {
 
     private static final long serialVersionUID = -3038533876489105940L;
 
+    // 只需要原子递增index属性
     private static final AtomicIntegerFieldUpdater<AtomicPositiveInteger> indexUpdater =
             AtomicIntegerFieldUpdater.newUpdater(AtomicPositiveInteger.class, "index");
 

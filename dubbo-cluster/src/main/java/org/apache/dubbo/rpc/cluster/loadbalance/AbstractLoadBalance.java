@@ -47,7 +47,9 @@ public abstract class AbstractLoadBalance implements LoadBalance {
     protected abstract <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation);
 
     protected int getWeight(Invoker<?> invoker, Invocation invocation) {
+        // 获取配置的权重值
         int weight = invoker.getUrl().getMethodParameter(invocation.getMethodName(), Constants.WEIGHT_KEY, Constants.DEFAULT_WEIGHT);
+
         if (weight > 0) {
             long timestamp = invoker.getUrl().getParameter(Constants.REMOTE_TIMESTAMP_KEY, 0L);
             if (timestamp > 0L) {
@@ -58,6 +60,7 @@ public abstract class AbstractLoadBalance implements LoadBalance {
                 }
             }
         }
+
         return weight;
     }
 

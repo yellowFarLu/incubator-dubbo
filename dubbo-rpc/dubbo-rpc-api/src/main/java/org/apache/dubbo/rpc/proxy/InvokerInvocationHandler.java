@@ -38,11 +38,17 @@ public class InvokerInvocationHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        // 获取方法名称
         String methodName = method.getName();
+        // 获取参数类型
         Class<?>[] parameterTypes = method.getParameterTypes();
+        // 方法所处的类 是 Object类，则直接调用
         if (method.getDeclaringClass() == Object.class) {
             return method.invoke(invoker, args);
         }
+        /*
+         * 方法调用是toString，依次执行MockClusterInvoker、AbstractClusterInvoker的toString方法
+         */
         if ("toString".equals(methodName) && parameterTypes.length == 0) {
             return invoker.toString();
         }

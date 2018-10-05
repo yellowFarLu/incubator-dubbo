@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
+ * 权重轮循均衡算法
  * Round robin load balance.
  *
  */
@@ -39,29 +40,53 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
 
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
+        // 获取接口名称
         String key = invokers.get(0).getUrl().getServiceKey() + "." + invocation.getMethodName();
-        int length = invokers.size(); // Number of invokers
-        int maxWeight = 0; // The maximum weight
-        int minWeight = Integer.MAX_VALUE; // The minimum weight
+
+        // 获取invoker的个数
+        int length = invokers.size();
+
+        // 记录最大权重
+        int maxWeight = 0;
+        // 记录最小的权重
+        int minWeight = Integer.MAX_VALUE;
+
+        // invoker作为key，权重为value
         final LinkedHashMap<Invoker<T>, IntegerWrapper> invokerToWeightMap = new LinkedHashMap<Invoker<T>, IntegerWrapper>();
+
+        // 权重总和
         int weightSum = 0;
+
         for (int i = 0; i < length; i++) {
+            // 获取invoker的权重
             int weight = getWeight(invokers.get(i), invocation);
-            maxWeight = Math.max(maxWeight, weight); // Choose the maximum weight
-            minWeight = Math.min(minWeight, weight); // Choose the minimum weight
+            // 获取最大的权重
+            maxWeight = Math.max(maxWeight, weight);
+            // 获取最小的权重
+            minWeight = Math.min(minWeight, weight);
+
             if (weight > 0) {
                 invokerToWeightMap.put(invokers.get(i), new IntegerWrapper(weight));
                 weightSum += weight;
             }
         }
+
+        // 获取一个自动增长的序号
         AtomicPositiveInteger sequence = sequences.get(key);
         if (sequence == null) {
+            // 放到sequences中保存，如果下个请求再到来，在现在的基础上面增长
             sequences.putIfAbsent(key, new AtomicPositiveInteger());
             sequence = sequences.get(key);
         }
+
+        // sequence中的index值自动增长1，并且返回给currentSequence
         int currentSequence = sequence.getAndIncrement();
+
+        // 如果最大权重大于0，最小权重小于最大权重（权重不相等）
         if (maxWeight > 0 && minWeight < maxWeight) {
+            // index与总权重取模的结果
             int mod = currentSequence % weightSum;
+
             for (int i = 0; i < maxWeight; i++) {
                 for (Map.Entry<Invoker<T>, IntegerWrapper> each : invokerToWeightMap.entrySet()) {
                     final Invoker<T> k = each.getKey();
@@ -70,13 +95,15 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
                         return k;
                     }
                     if (v.getValue() > 0) {
+                        // 减少权重值
                         v.decrement();
+                        // 减少mod值
                         mod--;
                     }
                 }
             }
         }
-        // Round robin
+        // 取模，获取一个invoker
         return invokers.get(currentSequence % length);
     }
 

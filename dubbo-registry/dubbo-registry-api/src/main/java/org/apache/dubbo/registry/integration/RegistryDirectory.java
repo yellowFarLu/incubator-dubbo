@@ -54,8 +54,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * RegistryDirectory
+ * Directory 代表多个 Invoker，可以把它看成 List<Invoker> ,但与 List 不同的是，它的值可能是动态变化的，比如注册中心推送变更
  *
+ * RegistryDirectory
  */
 public class RegistryDirectory<T> extends AbstractDirectory<T> implements NotifyListener {
 

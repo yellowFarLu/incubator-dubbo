@@ -60,11 +60,14 @@ public class MergeableClusterInvoker<T> implements Invoker<T> {
     @Override
     @SuppressWarnings("rawtypes")
     public Result invoke(final Invocation invocation) throws RpcException {
+        // 获取Directory中的invoker
         List<Invoker<T>> invokers = directory.list(invocation);
 
+        // 获取合并方法的名称
         String merger = getUrl().getMethodParameter(invocation.getMethodName(), Constants.MERGER_KEY);
-        if (ConfigUtils.isEmpty(merger)) { // If a method doesn't have a merger, only invoke one Group
+        if (ConfigUtils.isEmpty(merger)) {
             for (final Invoker<T> invoker : invokers) {
+                // 如果没有合并方法，只调动其中一个分组
                 if (invoker.isAvailable()) {
                     return invoker.invoke(invocation);
                 }
@@ -72,6 +75,7 @@ public class MergeableClusterInvoker<T> implements Invoker<T> {
             return invokers.iterator().next().invoke(invocation);
         }
 
+        // 获取返回值类型
         Class<?> returnType;
         try {
             returnType = getInterface().getMethod(
@@ -88,17 +92,23 @@ public class MergeableClusterInvoker<T> implements Invoker<T> {
                     return invoker.invoke(new RpcInvocation(invocation, invoker));
                 }
             });
+            // 保留future（未真正执行远程调用）
             results.put(invoker.getUrl().getServiceKey(), future);
         }
 
         Object result = null;
 
+        // 结果列表
         List<Result> resultList = new ArrayList<Result>(results.size());
 
+        // 超时时间
         int timeout = getUrl().getMethodParameter(invocation.getMethodName(), Constants.TIMEOUT_KEY, Constants.DEFAULT_TIMEOUT);
+
+        //
         for (Map.Entry<String, Future<Result>> entry : results.entrySet()) {
             Future<Result> future = entry.getValue();
             try {
+                // 执行远程调用
                 Result r = future.get(timeout, TimeUnit.MILLISECONDS);
                 if (r.hasException()) {
                     log.error("Invoke " + getGroupDescFromServiceKey(entry.getKey()) + 
@@ -115,6 +125,7 @@ public class MergeableClusterInvoker<T> implements Invoker<T> {
         if (resultList.isEmpty()) {
             return new RpcResult((Object) null);
         } else if (resultList.size() == 1) {
+            // 只有一个结果，直接返回了
             return resultList.iterator().next();
         }
 
@@ -123,6 +134,10 @@ public class MergeableClusterInvoker<T> implements Invoker<T> {
         }
 
         if (merger.startsWith(".")) {
+            /*
+             * 配置的方法名称，以"."开头
+             * 这种方式，入参固定只有一个，没有达到合并的效果，不建议使用
+             */
             merger = merger.substring(1);
             Method method;
             try {
@@ -150,6 +165,9 @@ public class MergeableClusterInvoker<T> implements Invoker<T> {
                 throw new RpcException("Can not merge result: " + e.getMessage(), e);
             }
         } else {
+            /*
+             * 建议使用Merger扩展的方式
+             */
             Merger resultMerger;
             if (ConfigUtils.isDefault(merger)) {
                 resultMerger = MergerFactory.getMerger(returnType);

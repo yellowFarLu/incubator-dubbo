@@ -27,6 +27,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
+ * dubbo默认的router路由
+ * 主要根据参数，判断是否需要
+ *      筛选出正常的（非mock的）invoker
+ *      或者
+ *      mock的invoker
  * A specific Router designed to realize mock feature.
  * If a request is configured to use mock, then this router guarantees that only the invokers with protocol MOCK appear in final the invoker list, all other invokers will be excluded.
  *

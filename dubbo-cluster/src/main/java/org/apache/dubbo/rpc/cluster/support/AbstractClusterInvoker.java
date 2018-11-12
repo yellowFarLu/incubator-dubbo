@@ -105,7 +105,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
      * @param loadbalance load balance policy
      * @param invocation  invocation
      * @param invokers    invoker candidates
-     * @param selected    exclude selected invokers or not
+     * @param selected    已经选择过的invoker（将被排除）
      * @return the invoker which will final to do invoke.
      * @throws RpcException
      */
@@ -143,6 +143,7 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         Invoker<T> invoker = loadbalance.select(invokers, getUrl(), invocation);
 
         //If the `invoker` is in the  `selected` or invoker is unavailable && availablecheck is true, reselect.
+        // 如果invoker在selected列表中，或者 invoker不可用并且availablecheck=true，  这两种情况下，重选
         if ((selected != null && selected.contains(invoker))
                 || (!invoker.isAvailable() && getUrl() != null && availablecheck)) {
             try {
@@ -197,11 +198,13 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             }
         } else { // do not check invoker.isAvailable()
             for (Invoker<T> invoker : invokers) {
+                // 不在selected列表中的，选择出来
                 if (selected == null || !selected.contains(invoker)) {
                     reselectInvokers.add(invoker);
                 }
             }
             if (!reselectInvokers.isEmpty()) {
+                // 根据重选之后的reselectInvokers列表，选择出唯一一个invoker
                 return loadbalance.select(reselectInvokers, getUrl(), invocation);
             }
         }
@@ -224,19 +227,24 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
 
     @Override
     public Result invoke(final Invocation invocation) throws RpcException {
-        // 检查是否删除了
+        // 检查消费端invoker是否销毁了
         checkWhetherDestroyed();
 
-        // binding attachments into invocation.
         // 将参数绑定到invocation
         Map<String, String> contextAttachments = RpcContext.getContext().getAttachments();
         if (contextAttachments != null && contextAttachments.size() != 0) {
             ((RpcInvocation) invocation).addAttachments(contextAttachments);
         }
 
+        // 获取满足条件的invoker
         List<Invoker<T>> invokers = list(invocation);
+
+        // 初始化loadBalance
         LoadBalance loadbalance = initLoadBalance(invokers, invocation);
+
+        // invocation ID将被添加在异步操作
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
+
         return doInvoke(invocation, invokers, loadbalance);
     }
 

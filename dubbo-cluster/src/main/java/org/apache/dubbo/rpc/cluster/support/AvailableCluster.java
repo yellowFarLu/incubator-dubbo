@@ -42,6 +42,7 @@ public class AvailableCluster implements Cluster {
             public Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
                 for (Invoker<T> invoker : invokers) {
                     if (invoker.isAvailable()) {
+                        // 仅仅执行可只用的invoker
                         return invoker.invoke(invocation);
                     }
                 }

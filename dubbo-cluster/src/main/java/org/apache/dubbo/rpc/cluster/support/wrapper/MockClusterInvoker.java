@@ -32,6 +32,9 @@ import org.apache.dubbo.rpc.support.MockInvoker;
 
 import java.util.List;
 
+/**
+ * 主要用于判断是否需要mock
+ */
 public class MockClusterInvoker<T> implements Invoker<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(MockClusterInvoker.class);
@@ -73,17 +76,16 @@ public class MockClusterInvoker<T> implements Invoker<T> {
         String value = directory.getUrl().getMethodParameter(invocation.getMethodName(), Constants.MOCK_KEY, Boolean.FALSE.toString()).trim();
 
         if (value.length() == 0 || value.equalsIgnoreCase("false")) {
-            //no mock
+            // 不需要mock，继续往下调用
             result = this.invoker.invoke(invocation);
         } else if (value.startsWith("force")) {
             if (logger.isWarnEnabled()) {
                 logger.warn("force-mock: " + invocation.getMethodName() + " force-mock enabled , url : " + directory.getUrl());
             }
-            //force:direct mock
             // 选择mock的invoker
             result = doMockInvoke(invocation, null);
         } else {
-            //fail-mock
+            // 正常调用失败，则调用mock
             try {
                 result = this.invoker.invoke(invocation);
             } catch (RpcException e) {

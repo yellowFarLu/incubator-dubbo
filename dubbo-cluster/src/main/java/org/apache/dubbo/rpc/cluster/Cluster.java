@@ -33,8 +33,7 @@ import org.apache.dubbo.rpc.cluster.support.FailoverCluster;
 public interface Cluster {
 
     /**
-     * Merge the directory invokers to a virtual invoker.
-     *
+     * 把Directory中的invoker集合 合并 成一个虚拟invoker
      * @param <T>
      * @param directory
      * @return cluster invoker

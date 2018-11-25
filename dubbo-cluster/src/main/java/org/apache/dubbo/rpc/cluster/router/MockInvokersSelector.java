@@ -32,8 +32,6 @@ import java.util.List;
  *      筛选出正常的（非mock的）invoker
  *      或者
  *      mock的invoker
- * A specific Router designed to realize mock feature.
- * If a request is configured to use mock, then this router guarantees that only the invokers with protocol MOCK appear in final the invoker list, all other invokers will be excluded.
  *
  */
 public class MockInvokersSelector implements Router {
@@ -42,12 +40,16 @@ public class MockInvokersSelector implements Router {
     public <T> List<Invoker<T>> route(final List<Invoker<T>> invokers,
                                       URL url, final Invocation invocation) throws RpcException {
         if (invocation.getAttachments() == null) {
+            // 没有配置参数，直接选择正常的invoker
             return getNormalInvokers(invokers);
         } else {
+            // 获取mock配置参数，判断是否需要mock
             String value = invocation.getAttachments().get(Constants.INVOCATION_NEED_MOCK);
             if (value == null)
+                // 选择正常invoker
                 return getNormalInvokers(invokers);
             else if (Boolean.TRUE.toString().equalsIgnoreCase(value)) {
+                // 选择mock invoker
                 return getMockedInvokers(invokers);
             }
         }
@@ -71,6 +73,7 @@ public class MockInvokersSelector implements Router {
         if (!hasMockProviders(invokers)) {
             return invokers;
         } else {
+            // 剔除mock的invoker
             List<Invoker<T>> sInvokers = new ArrayList<Invoker<T>>(invokers.size());
             for (Invoker<T> invoker : invokers) {
                 if (!invoker.getUrl().getProtocol().equals(Constants.MOCK_PROTOCOL)) {
@@ -84,6 +87,7 @@ public class MockInvokersSelector implements Router {
     private <T> boolean hasMockProviders(final List<Invoker<T>> invokers) {
         boolean hasMockProvider = false;
         for (Invoker<T> invoker : invokers) {
+            // 判断是否mock invoker的方式：判断protocol是否mock协议
             if (invoker.getUrl().getProtocol().equals(Constants.MOCK_PROTOCOL)) {
                 hasMockProvider = true;
                 break;

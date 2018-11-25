@@ -29,7 +29,7 @@ import org.apache.dubbo.rpc.cluster.LoadBalance;
 import java.util.List;
 
 /**
- * When invoke fails, log the error message and ignore this error by returning an empty RpcResult.
+ * 调用实例失败后，如果有报错，则忽略掉异常，返回一个正常的空结果
  * Usually used to write audit logs and other operations
  *
  * <a href="http://en.wikipedia.org/wiki/Fail-safe">Fail-safe</a>

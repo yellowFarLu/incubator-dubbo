@@ -29,6 +29,8 @@ import org.apache.dubbo.rpc.cluster.LoadBalance;
 import java.util.List;
 
 /**
+ * 广播调用
+ * 广播调用所有提供者，逐个调用，任意一台报错则报错。通常用于通知所有提供者更新缓存或日志等本地资源信息。
  * BroadcastClusterInvoker
  *
  */
@@ -47,8 +49,10 @@ public class BroadcastClusterInvoker<T> extends AbstractClusterInvoker<T> {
         RpcContext.getContext().setInvokers((List) invokers);
         RpcException exception = null;
         Result result = null;
+
         for (Invoker<T> invoker : invokers) {
             try {
+                // 循环调用invoker
                 result = invoker.invoke(invocation);
             } catch (RpcException e) {
                 exception = e;

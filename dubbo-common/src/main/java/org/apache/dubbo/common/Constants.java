@@ -84,7 +84,7 @@ public class Constants {
 
     public static final String DEFAULT_LOADBALANCE = "random";
 
-    public static final String DEFAULT_PROTOCOL = "dubbo";
+    public static final String DEFAULT_PROTOCOL = "dubboSpringContainer";
 
     public static final String DEFAULT_EXCHANGER = "header";
 

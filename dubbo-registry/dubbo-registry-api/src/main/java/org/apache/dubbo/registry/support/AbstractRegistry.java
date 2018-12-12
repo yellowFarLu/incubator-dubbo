@@ -76,21 +76,45 @@ public abstract class AbstractRegistry implements Registry {
     private File file;
 
     public AbstractRegistry(URL url) {
+        // 设置注册中心url
         setUrl(url);
-        // Start file save timer
+
+        // 是否开启"文件保存定时器"
         syncSaveFile = url.getParameter(Constants.REGISTRY_FILESAVE_SYNC_KEY, false);
+
+        /*
+         * 保存的文件为：
+         * /Users/huangyuan/.dubbo/dubbo-registry-springProviderApplication-127.0.0.1:2181.cache
+         *
+         * dubbo中zookeeper做注册中心,如果注册中心集群都挂掉,那发布者和订阅者还能通信吗?
+         *
+         * 能，dubbo会将zookeeper的信息缓存到本地，
+         * 作为一个缓存文件,并且转换成properties对象方便使用.
+         */
         String filename = url.getParameter(Constants.FILE_KEY, System.getProperty("user.home") + "/.dubbo/dubbo-registry-" + url.getParameter(Constants.APPLICATION_KEY) + "-" + url.getAddress() + ".cache");
+
         File file = null;
+
         if (ConfigUtils.isNotEmpty(filename)) {
             file = new File(filename);
             if (!file.exists() && file.getParentFile() != null && !file.getParentFile().exists()) {
+                // 不存在则创建
                 if (!file.getParentFile().mkdirs()) {
                     throw new IllegalArgumentException("Invalid registry store file " + file + ", cause: Failed to create directory " + file.getParentFile() + "!");
                 }
             }
         }
+
         this.file = file;
+
+        /*
+         * 加载文件中的属性，key-value形式，示例如下：
+         * "group1/com.huang.yuan.api.service.DemoService:1.0" -> "empty://192.168.1.2:23801/com.huang.yuan.api.service.DemoService?anyhost=true&application=springProviderApplication&category=configurators&check=false&compiler=javassist&default.MyName=HuuangYuan&default.cluster=failover&default.delay=-1&default.loadbalance=random&default.proxy=javassist&default.retries=2&default.serialization=hessian2&default.timeout=3000&delay=-1&dubbo=2.0.2&generic=false&group=group1&interface=com.huang.yuan.api.service.DemoService&logger=slf4j&methods=test,hashCode,equals,toString&organization=huangyuan&owner=huangyuan&pid=3920&revision=1.0-SNAPSHOT&side=provider&timestamp=1544278382203&version=1.0"
+         */
         loadProperties();
+
+        // 通知订阅
+        // url.getBackupUrls() 获取的是注册中心的url
         notify(url.getBackupUrls());
     }
 
@@ -297,11 +321,15 @@ public abstract class AbstractRegistry implements Registry {
         if (logger.isInfoEnabled()) {
             logger.info("Subscribe: " + url);
         }
+        // 查看这个服务有没有订阅者
         Set<NotifyListener> listeners = subscribed.get(url);
         if (listeners == null) {
             subscribed.putIfAbsent(url, new ConcurrentHashSet<NotifyListener>());
+            // 为服务创建一个空的订阅集合
             listeners = subscribed.get(url);
         }
+
+        // 把订阅者加到该服务（url）的订阅集合里面
         listeners.add(listener);
     }
 
@@ -351,6 +379,7 @@ public abstract class AbstractRegistry implements Registry {
     protected void notify(List<URL> urls) {
         if (urls == null || urls.isEmpty()) return;
 
+        // 对于每个订阅者Entry，告诉其监听者NotifyListener
         for (Map.Entry<URL, Set<NotifyListener>> entry : getSubscribed().entrySet()) {
             URL url = entry.getKey();
 
@@ -362,6 +391,7 @@ public abstract class AbstractRegistry implements Registry {
             if (listeners != null) {
                 for (NotifyListener listener : listeners) {
                     try {
+                        // 通知每个监听器
                         notify(url, listener, filterEmpty(url, urls));
                     } catch (Throwable t) {
                         logger.error("Failed to notify registry event, urls: " + urls + ", cause: " + t.getMessage(), t);
@@ -387,8 +417,12 @@ public abstract class AbstractRegistry implements Registry {
             logger.info("Notify urls for subscribe url " + url + ", urls: " + urls);
         }
         Map<String, List<URL>> result = new HashMap<String, List<URL>>();
+        /*
+         * 这里的url只是category不一样，category分别是provider、configration、router
+         */
         for (URL u : urls) {
             if (UrlUtils.isMatch(url, u)) {
+                // 分类
                 String category = u.getParameter(Constants.CATEGORY_KEY, Constants.DEFAULT_CATEGORY);
                 List<URL> categoryList = result.get(category);
                 if (categoryList == null) {
@@ -410,7 +444,9 @@ public abstract class AbstractRegistry implements Registry {
             String category = entry.getKey();
             List<URL> categoryList = entry.getValue();
             categoryNotified.put(category, categoryList);
+            //保存到主目录下的.dubbo目录下
             saveProperties(url);
+            //上面获取到的监听器进行通知
             listener.notify(categoryList);
         }
     }

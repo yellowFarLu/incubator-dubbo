@@ -67,6 +67,8 @@ public class Exchangers {
             throw new IllegalArgumentException("handler == null");
         }
         url = url.addParameterIfAbsent(Constants.CODEC_KEY, "exchange");
+        // getExchanger方法根据url获取到一个默认的实现HeaderExchanger
+        // 调用HeaderExchanger的bind方法
         return getExchanger(url).bind(url, handler);
     }
 

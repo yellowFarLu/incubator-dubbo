@@ -64,15 +64,23 @@ public abstract class FailbackRegistry extends AbstractRegistry {
     private final int retryPeriod;
 
     public FailbackRegistry(URL url) {
+
+        // 调用父类构造函数，这里是com.alibaba.dubbo.registry.support.AbstractRegistry#AbstractRegistry
         super(url);
+
+        // 重试时间，默认5000ms
         this.retryPeriod = url.getParameter(Constants.REGISTRY_RETRY_PERIOD_KEY, Constants.DEFAULT_REGISTRY_RETRY_PERIOD);
+
+        // 启动失败重试定时器
         this.retryFuture = retryExecutor.scheduleWithFixedDelay(new Runnable() {
             @Override
             public void run() {
-                // Check and connect to the registry
+                // 检测并连接注册中心
                 try {
+                    // 重试方法由每个具体子类实现
+                    // 获取到注册失败的，然后尝试注册
                     retry();
-                } catch (Throwable t) { // Defensive fault tolerance
+                } catch (Throwable t) {
                     logger.error("Unexpected error occur at failed retry, cause: " + t.getMessage(), t);
                 }
             }
@@ -130,15 +138,18 @@ public abstract class FailbackRegistry extends AbstractRegistry {
     @Override
     public void register(URL url) {
         super.register(url);
+
         failedRegistered.remove(url);
         failedUnregistered.remove(url);
+
         try {
-            // Sending a registration request to the server side
+            // 向服务器端发送注册请求
+            // 调用子类具体实现，发送注册请求
             doRegister(url);
         } catch (Exception e) {
             Throwable t = e;
 
-            // If the startup detection is opened, the Exception is thrown directly.
+            // 如果开启了启动时检测，则直接抛出异常
             boolean check = getUrl().getParameter(Constants.CHECK_KEY, true)
                     && url.getParameter(Constants.CHECK_KEY, true)
                     && !Constants.CONSUMER_PROTOCOL.equals(url.getProtocol());
@@ -152,7 +163,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
                 logger.error("Failed to register " + url + ", waiting for retry, cause: " + t.getMessage(), t);
             }
 
-            // Record a failed registration request to a failed list, retry regularly
+            // 将失败的注册请求记录到失败列表，定时重试
             failedRegistered.add(url);
         }
     }
@@ -190,9 +201,15 @@ public abstract class FailbackRegistry extends AbstractRegistry {
     @Override
     public void subscribe(URL url, NotifyListener listener) {
         super.subscribe(url, listener);
+
         removeFailedSubscribed(url, listener);
+
         try {
-            // Sending a subscription request to the server side
+            /*
+             * 想注册中心发送订阅请求
+             * 这里有一个地方比较有意思，就是自己的服务、依赖外部的服务，都会进行订阅。
+             * 这一步之后就会在/dubbo/dubbo.common.hello.service/XXXService节点下多一个configurators节点
+             */
             doSubscribe(url, listener);
         } catch (Exception e) {
             Throwable t = e;

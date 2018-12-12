@@ -38,8 +38,12 @@ public class ZkclientZookeeperClient extends AbstractZookeeperClient<IZkChildLis
 
     public ZkclientZookeeperClient(URL url) {
         super(url);
+        // 获取超时时间
         long timeout = url.getParameter(Constants.TIMEOUT_KEY, 30000L);
+
+        // 使用client监控连接状态
         client = new ZkClientWrapper(url.getBackupAddress(), timeout);
+
         client.addListener(new IZkStateListener() {
             @Override
             public void handleStateChanged(KeeperState state) throws Exception {
@@ -56,6 +60,7 @@ public class ZkclientZookeeperClient extends AbstractZookeeperClient<IZkChildLis
                 stateChanged(StateListener.RECONNECTED);
             }
         });
+
         client.start();
     }
 

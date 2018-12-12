@@ -30,12 +30,13 @@ import org.springframework.beans.factory.xml.NamespaceHandlerSupport;
 
 /**
  * DubboNamespaceHandler
- *
+ * 用于告诉spring，dubbo的标签如何解析
  * @export
  */
 public class DubboNamespaceHandler extends NamespaceHandlerSupport {
 
     static {
+        //去classpath下检查是否有其他的同名class  : 防止不同的类加载器重复加载DubboNamespaceHandler？
         Version.checkDuplicate(DubboNamespaceHandler.class);
     }
 

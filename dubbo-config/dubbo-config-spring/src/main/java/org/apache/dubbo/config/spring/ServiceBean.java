@@ -260,6 +260,15 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
                 setPath(beanName);
             }
         }
+
+        /*
+         * 如果设置了depley，则在这里暴露
+         * 否则，
+         * 在刷新容器最后一步发布ContextRefreshEvent事件的时候，
+         * 通知实现了ApplicationListener的类进行回调onApplicationEvent，dubbo会在这个方法中发布服务。
+         *
+         * 实际上无论是否设置了depley都会经过这里，只是会不会进行暴露服务而已
+         */
         if (!isDelay()) {
             export();
         }

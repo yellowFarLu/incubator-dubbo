@@ -51,8 +51,14 @@ public class Transporters {
         if (handlers.length == 1) {
             handler = handlers[0];
         } else {
+            // 如果有多个handler的话，需要使用分发器包装下
             handler = new ChannelHandlerDispatcher(handlers);
         }
+
+        /*
+         *  getTransporter()获取一个Adaptive的Transporter
+         *  然后调用bind方法（默认是NettyTransporter的bind方法）
+         */
         return getTransporter().bind(url, handler);
     }
 

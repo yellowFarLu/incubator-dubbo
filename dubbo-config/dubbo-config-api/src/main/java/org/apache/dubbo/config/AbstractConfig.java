@@ -89,10 +89,12 @@ public abstract class AbstractConfig implements Serializable {
         return value;
     }
 
+    // 获取系统属性
     protected static void appendProperties(AbstractConfig config) {
         if (config == null) {
             return;
         }
+        // 获取前缀，比如 dubbo.consumer.
         String prefix = "dubbo." + getTagName(config.getClass()) + ".";
         Method[] methods = config.getClass().getMethods();
         for (Method method : methods) {
@@ -100,11 +102,17 @@ public abstract class AbstractConfig implements Serializable {
                 String name = method.getName();
                 if (name.length() > 3 && name.startsWith("set") && Modifier.isPublic(method.getModifiers())
                         && method.getParameterTypes().length == 1 && isPrimitive(method.getParameterTypes()[0])) {
+
+                    // 通过方法名称 获取对应的属性名称
                     String property = StringUtils.camelToSplitName(name.substring(3, 4).toLowerCase() + name.substring(4), ".");
 
                     String value = null;
+
+                    // config对象的id属性，比如说 id="springConsumer"
                     if (config.getId() != null && config.getId().length() > 0) {
+                        //pn = 前缀 + config的id + 属性名，如：dubbo.consumer.springConsumer.default
                         String pn = prefix + config.getId() + "." + property;
+                        // 获取系统属性
                         value = System.getProperty(pn);
                         if (!StringUtils.isBlank(value)) {
                             logger.info("Use System Property " + pn + " to config dubbo");
@@ -120,6 +128,7 @@ public abstract class AbstractConfig implements Serializable {
                     if (value == null || value.length() == 0) {
                         Method getter;
                         try {
+                            // 获取该属性的getter方法
                             getter = config.getClass().getMethod("get" + name.substring(3));
                         } catch (NoSuchMethodException e) {
                             try {
@@ -147,6 +156,7 @@ public abstract class AbstractConfig implements Serializable {
                         }
                     }
                     if (value != null && value.length() > 0) {
+                        // TODO by huangy on 2018/11/25. 没有走到这里的？
                         method.invoke(config, convertPrimitive(method.getParameterTypes()[0], value));
                     }
                 }

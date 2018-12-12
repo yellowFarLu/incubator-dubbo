@@ -57,16 +57,36 @@ public class ZookeeperRegistry extends FailbackRegistry {
     private final ZookeeperClient zkClient;
 
     public ZookeeperRegistry(URL url, ZookeeperTransporter zookeeperTransporter) {
+        // 调用父类的构造函数，这里是 com.alibaba.dubbo.registry.support.FailbackRegistry#FailbackRegistry
         super(url);
+
         if (url.isAnyHost()) {
             throw new IllegalStateException("registry address == null");
         }
+
+        //获得到注册中心中的分组，默认dubbo
         String group = url.getParameter(Constants.GROUP_KEY, DEFAULT_ROOT);
+
+        // 给组名加上"/"
         if (!group.startsWith(Constants.PATH_SEPARATOR)) {
             group = Constants.PATH_SEPARATOR + group;
         }
+
+        // 注册到注册中心的节点
         this.root = group;
+
+        /*
+         *  使用zookeeperTansporter去连接
+         *  ZookeeperTransport这里是生成的自适应实现
+         *          如果<dubbo:registry的client属性设置为"zkclient"，则使用 ZkClientZookeeperTransporter
+         *          默认使用：CuratorZookeeperTransporter
+         *  zookeeperTransporter的connect去实例化一个ZkClient实例。
+         *  并且订阅状态变化的监听器subscribeStateChanges
+         *  然后返回一个ZkClientZookeeperClient实例
+         */
         zkClient = zookeeperTransporter.connect(url);
+
+        // 状态监听器
         zkClient.addStateListener(new StateListener() {
             @Override
             public void stateChanged(int state) {
@@ -111,6 +131,15 @@ public class ZookeeperRegistry extends FailbackRegistry {
     @Override
     protected void doRegister(URL url) {
         try {
+            /*
+             * 这里zkClient就是我们上面调用构造的时候生成的 ZkClientZookeeperClient
+             * ZkClientZookeeperClient 保存着连接到Zookeeper的zkClient实例
+             * 开始注册，也就是在Zookeeper中创建节点s
+             * 这里toUrlPath获取到的path为：（类似）
+             *                  /dubbo/com.huang.yuan.api.service.DemoService2/provider.....
+             *                  这就是在Zookeeper上面创建的文件夹路径及节点
+             * 默认创建的节点是临时节点
+             */
             zkClient.create(toUrlPath(url), url.getParameter(Constants.DYNAMIC_KEY, true));
         } catch (Throwable e) {
             throw new RpcException("Failed to register " + url + " to zookeeper " + getUrl() + ", cause: " + e.getMessage(), e);
@@ -165,28 +194,50 @@ public class ZookeeperRegistry extends FailbackRegistry {
                 }
             } else {
                 List<URL> urls = new ArrayList<URL>();
+
+                /*
+                 * toCategoriesPath是获取分类路径
+                 *      比如说获取的path数组，含有下面3个值
+                 *      /dubbo/com.huang.yuan.api.service.DemoService2/providers
+                 *      /dubbo/com.huang.yuan.api.service.DemoService2/configurators
+                 *      /dubbo/com.huang.yuan.api.service.DemoService2/routers
+                 */
                 for (String path : toCategoriesPath(url)) {
+
+                    // 获取订阅者
                     ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.get(url);
                     if (listeners == null) {
                         zkListeners.putIfAbsent(url, new ConcurrentHashMap<NotifyListener, ChildListener>());
                         listeners = zkListeners.get(url);
                     }
+
+                    // 监听器
                     ChildListener zkListener = listeners.get(listener);
+
                     if (zkListener == null) {
                         listeners.putIfAbsent(listener, new ChildListener() {
                             @Override
                             public void childChanged(String parentPath, List<String> currentChilds) {
+                                // 这里设置了监听回调的地址,即回调给FailbackRegistry中的notify
                                 ZookeeperRegistry.this.notify(url, listener, toUrlsWithEmpty(url, parentPath, currentChilds));
                             }
                         });
                         zkListener = listeners.get(listener);
                     }
+
+                    // 根据路径path创建节点
                     zkClient.create(path, false);
+
+                    // 添加子节点监听器
                     List<String> children = zkClient.addChildListener(path, zkListener);
+
                     if (children != null) {
                         urls.addAll(toUrlsWithEmpty(url, path, children));
                     }
                 }
+
+                // 通知消费者
+                // 在org.apache.dubbo.registry.support.FailbackRegistry.notify中发布操作
                 notify(url, listener, urls);
             }
         } catch (Throwable e) {

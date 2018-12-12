@@ -41,6 +41,13 @@ public class HeaderExchanger implements Exchanger {
 
     @Override
     public ExchangeServer bind(URL url, ExchangeHandler handler) throws RemotingException {
+        /*
+         *  直接返回一个HeaderExchangeServer
+         *
+         *  1、先创建一个HeaderExchangeHandler
+         *  2、再创建一个DecodeHandler
+         *  3、最后调用Transporters.bind
+         */
         return new HeaderExchangeServer(Transporters.bind(url, new DecodeHandler(new HeaderExchangeHandler(handler))));
     }
 

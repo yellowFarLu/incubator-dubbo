@@ -82,25 +82,41 @@ public abstract class AbstractRegistryFactory implements RegistryFactory {
 
     @Override
     public Registry getRegistry(URL url) {
+        // 这里更换接口名称为 RegistryService
         url = url.setPath(RegistryService.class.getName())
                 .addParameter(Constants.INTERFACE_KEY, RegistryService.class.getName())
                 .removeParameters(Constants.EXPORT_KEY, Constants.REFER_KEY);
+        /*
+         * 这里key为：
+         * zookeeper://127.0.0.1:2181/com.alibaba.dubbo.registry.RegistryService
+         */
         String key = url.toServiceString();
-        // Lock the registry access process to ensure a single instance of the registry
+
+        // 锁定注册中心获取过程，保证注册中心单一实例
         LOCK.lock();
+
         try {
+            //先从缓存中获取Registry实例
             Registry registry = REGISTRIES.get(key);
+
             if (registry != null) {
                 return registry;
             }
+
+            //创建registry，会直接new一个ZookeeperRegistry返回
+            //具体创建实例是子类来实现的，这里是 com.alibaba.dubbo.registry.zookeeper.ZookeeperRegistryFactory
             registry = createRegistry(url);
             if (registry == null) {
                 throw new IllegalStateException("Can not create registry " + url);
             }
+            //放到缓存中
             REGISTRIES.put(key, registry);
+
+            // 返回注册中心实例
             return registry;
+
         } finally {
-            // Release the lock
+            // 释放锁
             LOCK.unlock();
         }
     }

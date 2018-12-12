@@ -43,10 +43,19 @@ public class ProtocolFilterWrapper implements Protocol {
         this.protocol = protocol;
     }
 
+    // 构建Filter链
     private static <T> Invoker<T> buildInvokerChain(final Invoker<T> invoker, String key, String group) {
         Invoker<T> last = invoker;
+
+        /*
+         * 通过Filter的ExtendLoader实例获取其激活的filter列表，getActivateExtension逻辑分为两部分：
+         * 1.加载标注了Activate注解的filter列表
+         * 2.加载用户在spring配置文件中手动注入的filter列表
+         */
         List<Filter> filters = ExtensionLoader.getExtensionLoader(Filter.class).getActivateExtension(invoker.getUrl(), key, group);
+
         if (!filters.isEmpty()) {
+
             for (int i = filters.size() - 1; i >= 0; i--) {
                 final Filter filter = filters.get(i);
                 final Invoker<T> next = last;

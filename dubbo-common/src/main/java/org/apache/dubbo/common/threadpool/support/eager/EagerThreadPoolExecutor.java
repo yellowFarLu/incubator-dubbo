@@ -57,17 +57,21 @@ public class EagerThreadPoolExecutor extends ThreadPoolExecutor {
 
     @Override
     public void execute(Runnable command) {
+
         if (command == null) {
             throw new NullPointerException();
         }
-        // do not increment in method beforeExecute!
+
+        // 记录提交任务数
         submittedTaskCount.incrementAndGet();
+
         try {
             super.execute(command);
         } catch (RejectedExecutionException rx) {
-            // retry to offer the task into queue.
+
             final TaskQueue queue = (TaskQueue) super.getQueue();
             try {
+                // 重新尝试将任务添加到队列中，并且抛出异常
                 if (!queue.retryOffer(command, 0, TimeUnit.MILLISECONDS)) {
                     submittedTaskCount.decrementAndGet();
                     throw new RejectedExecutionException("Queue capacity is full.", rx);

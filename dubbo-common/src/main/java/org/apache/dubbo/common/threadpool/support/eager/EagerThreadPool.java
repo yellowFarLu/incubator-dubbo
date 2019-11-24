@@ -35,6 +35,7 @@ public class EagerThreadPool implements ThreadPool {
 
     @Override
     public Executor getExecutor(URL url) {
+
         String name = url.getParameter(Constants.THREAD_NAME_KEY, Constants.DEFAULT_THREAD_NAME);
         int cores = url.getParameter(Constants.CORE_THREADS_KEY, Constants.DEFAULT_CORE_THREADS);
         int threads = url.getParameter(Constants.THREADS_KEY, Integer.MAX_VALUE);

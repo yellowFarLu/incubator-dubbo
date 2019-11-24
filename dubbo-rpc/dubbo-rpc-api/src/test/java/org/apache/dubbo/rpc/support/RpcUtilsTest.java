@@ -128,13 +128,6 @@ public class RpcUtilsTest {
         Assert.assertEquals(String.class, types2[0]);
         Assert.assertEquals(String.class, types2[1]);
 
-        Invocation inv3 = new RpcInvocation("testReturnType3", new Class<?>[]{String.class}, null, null, invoker);
-        java.lang.reflect.Type[] types3 = RpcUtils.getReturnTypes(inv3);
-        Assert.assertEquals(2, types3.length);
-        Assert.assertEquals(List.class, types3[0]);
-        java.lang.reflect.Type genericReturnType3 = DemoService.class.getMethod("testReturnType3", new Class<?>[]{String.class}).getGenericReturnType();
-        Assert.assertEquals(((ParameterizedType) genericReturnType3).getActualTypeArguments()[0], types3[1]);
-
         Invocation inv4 = new RpcInvocation("testReturnType4", new Class<?>[]{String.class}, null, null, invoker);
         java.lang.reflect.Type[] types4 = RpcUtils.getReturnTypes(inv4);
         Assert.assertEquals(2, types4.length);
@@ -147,5 +140,23 @@ public class RpcUtilsTest {
         Assert.assertEquals(Map.class, types5[0]);
         java.lang.reflect.Type genericReturnType5 = DemoService.class.getMethod("testReturnType5", new Class<?>[]{String.class}).getGenericReturnType();
         Assert.assertEquals(((ParameterizedType) genericReturnType5).getActualTypeArguments()[0], types5[1]);
+    }
+
+    @Test
+    public void test() throws Exception {
+
+        Invoker invoker = mock(Invoker.class);
+        given(invoker.getUrl()).willReturn(URL.valueOf("test://127.0.0.1:1/org.apache.dubbo.rpc.support.DemoService?interface=org.apache.dubbo.rpc.support.DemoService"));
+
+        Invocation inv3 =
+                new RpcInvocation("testReturnType3", new Class<?>[]{String.class}, null, null, invoker);
+        java.lang.reflect.Type[] types3 = RpcUtils.getReturnTypes(inv3);
+        Assert.assertEquals(2, types3.length);
+        Assert.assertEquals(List.class, types3[0]);
+        java.lang.reflect.Type genericReturnType3 =
+                DemoService.class.getMethod("testReturnType3",
+                        new Class<?>[]{String.class}).getGenericReturnType();
+        Assert.assertEquals(((ParameterizedType) genericReturnType3).getActualTypeArguments()[0], types3[1]);
+
     }
 }

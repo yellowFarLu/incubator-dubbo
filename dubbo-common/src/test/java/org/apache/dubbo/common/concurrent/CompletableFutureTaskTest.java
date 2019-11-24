@@ -41,8 +41,13 @@ public class CompletableFutureTaskTest {
     @Test
     public void testCreate() throws InterruptedException {
 
+        System.out.println("主线程id=" + Thread.currentThread().getId());
+
         final CountDownLatch countDownLatch = new CountDownLatch(1);
         CompletableFuture<Boolean> completableFuture = CompletableFuture.supplyAsync(() -> {
+
+            System.out.println("回调的线程id=" + Thread.currentThread().getId());
+
             countDownLatch.countDown();
             return true;
         },executor);

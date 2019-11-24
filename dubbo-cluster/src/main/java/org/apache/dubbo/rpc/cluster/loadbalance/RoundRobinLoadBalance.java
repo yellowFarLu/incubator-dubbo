@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * 权重轮循均衡算法
+ * 轮循 负载均衡算法
  * Round robin load balance.
  *
  */
@@ -40,6 +40,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
 
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
+
         // 获取接口名称
         String key = invokers.get(0).getUrl().getServiceKey() + "." + invocation.getMethodName();
 
@@ -58,8 +59,10 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
         int weightSum = 0;
 
         for (int i = 0; i < length; i++) {
+
             // 获取invoker的权重
             int weight = getWeight(invokers.get(i), invocation);
+
             // 获取最大的权重
             maxWeight = Math.max(maxWeight, weight);
             // 获取最小的权重
@@ -73,29 +76,36 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
 
         // 获取一个自动增长的序号
         AtomicPositiveInteger sequence = sequences.get(key);
+
         if (sequence == null) {
-            // 放到sequences中保存，如果下个请求再到来，在现在的基础上面增长
+            // 没有则新建
             sequences.putIfAbsent(key, new AtomicPositiveInteger());
             sequence = sequences.get(key);
         }
 
-        // sequence中的index值自动增长1，并且返回给currentSequence
+        // 有请求过来，则sequence增加1
         int currentSequence = sequence.getAndIncrement();
 
         // 如果最大权重大于0，最小权重小于最大权重（权重不相等）
         if (maxWeight > 0 && minWeight < maxWeight) {
-            // index与总权重取模的结果
+
+            // currentSequence与总权重取模的结果
             int mod = currentSequence % weightSum;
 
             for (int i = 0; i < maxWeight; i++) {
+
                 for (Map.Entry<Invoker<T>, IntegerWrapper> each : invokerToWeightMap.entrySet()) {
+
                     final Invoker<T> k = each.getKey();
+
                     final IntegerWrapper v = each.getValue();
+
                     if (mod == 0 && v.getValue() > 0) {
                         return k;
                     }
+
                     if (v.getValue() > 0) {
-                        // 减少权重值
+                        // 权重值减1
                         v.decrement();
                         // 减少mod值
                         mod--;
@@ -103,6 +113,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
                 }
             }
         }
+
         // 取模，获取一个invoker
         return invokers.get(currentSequence % length);
     }

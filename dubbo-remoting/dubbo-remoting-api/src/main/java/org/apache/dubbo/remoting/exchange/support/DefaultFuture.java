@@ -92,8 +92,10 @@ public class DefaultFuture implements ResponseFuture {
 
     public static void received(Channel channel, Response response) {
         try {
+            // 根据调用编号从 FUTURES 集合中查找指定的 DefaultFuture 对象
             DefaultFuture future = FUTURES.remove(response.getId());
             if (future != null) {
+                // 继续向下调用
                 future.doReceived(response);
             } else {
                 logger.warn("The timeout response finally returned at "
@@ -117,11 +119,15 @@ public class DefaultFuture implements ResponseFuture {
         if (timeout <= 0) {
             timeout = Constants.DEFAULT_TIMEOUT;
         }
+
+        // 如果没有收到响应，则进行循环内，循环进行判断
         if (!isDone()) {
+
             long start = System.currentTimeMillis();
             lock.lock();
             try {
                 while (!isDone()) {
+                    // 在等待队列中阻塞，等待被唤醒
                     done.await(timeout, TimeUnit.MILLISECONDS);
                     if (isDone() || System.currentTimeMillis() - start > timeout) {
                         break;
@@ -132,10 +138,13 @@ public class DefaultFuture implements ResponseFuture {
             } finally {
                 lock.unlock();
             }
+
             if (!isDone()) {
                 throw new TimeoutException(sent > 0, channel, getTimeoutMessage(false));
             }
         }
+
+        // 从response对象中获取结果返回
         return returnFromResponse();
     }
 
@@ -253,10 +262,14 @@ public class DefaultFuture implements ResponseFuture {
     private void doReceived(Response res) {
         lock.lock();
         try {
+            // 保存响应对象
             response = res;
+
             if (done != null) {
+                // 当收到响应的时候，唤醒正在等待的客户端线程
                 done.signal();
             }
+
         } finally {
             lock.unlock();
         }

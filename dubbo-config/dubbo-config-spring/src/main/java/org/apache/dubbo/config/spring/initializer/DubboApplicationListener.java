@@ -23,8 +23,8 @@ import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.ContextRefreshedEvent;
 
 /**
- * An application listener that listens the ContextClosedEvent.
- * Upon the event, this listener will do the necessary clean up to avoid memory leak.
+ * 当tomcat关闭的时候，回调监听器方法，在监听器方法中回调DubboShutdownHook进行资源的释放
+ * 事件发生后，此侦听器将进行必要的清理以避免内存泄漏。
  */
 public class DubboApplicationListener implements ApplicationListener<ApplicationEvent> {
 

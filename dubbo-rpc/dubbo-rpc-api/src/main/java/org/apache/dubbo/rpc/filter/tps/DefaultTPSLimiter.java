@@ -30,18 +30,29 @@ public class DefaultTPSLimiter implements TPSLimiter {
 
     @Override
     public boolean isAllowable(URL url, Invocation invocation) {
+
+        // 获取时间间隔内能执行多少个请求
         int rate = url.getParameter(Constants.TPS_LIMIT_RATE_KEY, -1);
+
+        // 时间间隔
         long interval = url.getParameter(Constants.TPS_LIMIT_INTERVAL_KEY,
                 Constants.DEFAULT_TPS_LIMIT_INTERVAL);
+
         String serviceKey = url.getServiceKey();
+
         if (rate > 0) {
+
             StatItem statItem = stats.get(serviceKey);
+
             if (statItem == null) {
                 stats.putIfAbsent(serviceKey,
                         new StatItem(serviceKey, rate, interval));
                 statItem = stats.get(serviceKey);
             }
+
+            // 判断是否能够执行
             return statItem.isAllowable();
+
         } else {
             StatItem statItem = stats.get(serviceKey);
             if (statItem != null) {

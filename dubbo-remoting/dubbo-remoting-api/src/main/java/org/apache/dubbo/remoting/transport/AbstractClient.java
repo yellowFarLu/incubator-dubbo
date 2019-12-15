@@ -257,11 +257,15 @@ public abstract class AbstractClient extends AbstractEndpoint implements Client 
         if (send_reconnect && !isConnected()) {
             connect();
         }
+
+        // getChannel()方法由子类实现，由子类决定底层使用什么通讯框架
         Channel channel = getChannel();
-        //TODO Can the value returned by getChannel() be null? need improvement.
+
         if (channel == null || !channel.isConnected()) {
             throw new RemotingException(this, "message can not send, because channel is closed . url:" + getUrl());
         }
+
+        // 继续向下调用
         channel.send(message, sent);
     }
 

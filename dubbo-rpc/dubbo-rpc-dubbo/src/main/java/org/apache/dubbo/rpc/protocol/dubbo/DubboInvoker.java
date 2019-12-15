@@ -73,25 +73,40 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
         inv.setAttachment(Constants.PATH_KEY, getUrl().getPath());
         inv.setAttachment(Constants.VERSION_KEY, version);
 
+        // 获取ExchangeClient，ExchangeClient封装了请求-响应模式
         ExchangeClient currentClient;
         if (clients.length == 1) {
             currentClient = clients[0];
         } else {
             currentClient = clients[index.getAndIncrement() % clients.length];
         }
+
         try {
+            // isAsync=true表示异步带回调
             boolean isAsync = RpcUtils.isAsync(getUrl(), invocation);
+
             boolean isAsyncFuture = RpcUtils.isGeneratedFuture(inv) || RpcUtils.isFutureReturnType(inv);
+
+            // isOneway=true表示异步不带回调
             boolean isOneway = RpcUtils.isOneway(getUrl(), invocation);
+
             int timeout = getUrl().getMethodParameter(methodName, Constants.TIMEOUT_KEY, Constants.DEFAULT_TIMEOUT);
+
             if (isOneway) {
                 boolean isSent = getUrl().getMethodParameter(methodName, Constants.SENT_KEY, false);
                 currentClient.send(inv, isSent);
                 RpcContext.getContext().setFuture(null);
+                // 异步，不带回调的话，直接返回一个空数组
                 return new RpcResult();
+
             } else if (isAsync) {
+                /*
+                 * 异步带回调
+                 * 客户端发起请求，然后设置一个ResponseFuture到上下文中，
+                 * 直接return一个空结果的RpcResult，
+                 * 接下来当服务端处理完成，客户端Netty层在收到响应后会通过Future通知应用线程
+                 */
                 ResponseFuture future = currentClient.request(inv, timeout);
-                // For compatibility
                 FutureAdapter<Object> futureAdapter = new FutureAdapter<>(future);
                 RpcContext.getContext().setFuture(futureAdapter);
 
@@ -104,6 +119,7 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
                 }
                 return result;
             } else {
+                // 同步情况下，客户端发起请求，并通过get()方法阻塞等待服务端的响应结果
                 RpcContext.getContext().setFuture(null);
                 return (Result) currentClient.request(inv, timeout).get();
             }

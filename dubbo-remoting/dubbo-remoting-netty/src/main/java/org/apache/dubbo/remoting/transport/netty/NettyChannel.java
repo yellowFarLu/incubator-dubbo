@@ -56,10 +56,18 @@ final class NettyChannel extends AbstractChannel {
         if (ch == null) {
             return null;
         }
+
+        // 尝试从集合中获取 NettyChannel 实例
         NettyChannel ret = channelMap.get(ch);
+
         if (ret == null) {
+
+            // 如果 ret = null，则创建一个新的 NettyChannel 实例
             NettyChannel nc = new NettyChannel(ch, url, handler);
+
             if (ch.isConnected()) {
+
+                // 将 <Channel, NettyChannel> 键值对存入 channelMap 集合中
                 ret = channelMap.putIfAbsent(ch, nc);
             }
             if (ret == null) {
@@ -97,7 +105,14 @@ final class NettyChannel extends AbstractChannel {
         boolean success = true;
         int timeout = 0;
         try {
+            // 发送消息(包含请求和响应消息)
             ChannelFuture future = channel.write(message);
+
+            /*
+             * sent 的值源于 <dubbo:method sent="true/false" /> 中 sent 的配置值，有两种配置值：
+             * 1. true: 等待消息发出，消息发送失败将抛出异常
+             * 2. false: 不等待消息发出，将消息放入 IO 队列，即刻返回
+             */
             if (sent) {
                 timeout = getUrl().getPositiveParameter(Constants.TIMEOUT_KEY, Constants.DEFAULT_TIMEOUT);
                 success = future.await(timeout);

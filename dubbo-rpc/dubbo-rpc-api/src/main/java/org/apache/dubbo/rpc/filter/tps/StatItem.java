@@ -39,16 +39,31 @@ class StatItem {
     }
 
     public boolean isAllowable() {
+
+        // 获取现在的时间
         long now = System.currentTimeMillis();
+
+        // 当经过了interval时间间隔
         if (now > lastResetTime + interval) {
+
+            // 重新设置token令牌的个数
             token.set(rate);
+
+            // 从现在开始，经过interval的时间
             lastResetTime = now;
         }
 
+        // 获取令牌的值
         int value = token.get();
+
         boolean flag = false;
+
+        // 使用CAS实现乐观锁
         while (value > 0 && !flag) {
+
+            // 能够执行请求，则令牌减一
             flag = token.compareAndSet(value, value - 1);
+
             value = token.get();
         }
 

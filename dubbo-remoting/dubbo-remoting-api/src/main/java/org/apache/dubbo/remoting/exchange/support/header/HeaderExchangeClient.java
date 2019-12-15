@@ -38,6 +38,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * HeaderExchangeClient封装了一些关于心跳检测的逻辑
  * DefaultMessageClient
  */
 public class HeaderExchangeClient implements ExchangeClient {
@@ -58,14 +59,24 @@ public class HeaderExchangeClient implements ExchangeClient {
             throw new IllegalArgumentException("client == null");
         }
         this.client = client;
+
         this.channel = new HeaderExchangeChannel(client);
+
         String dubbo = client.getUrl().getParameter(Constants.DUBBO_VERSION_KEY);
-        this.heartbeat = client.getUrl().getParameter(Constants.HEARTBEAT_KEY, dubbo != null && dubbo.startsWith("1.0.") ? Constants.DEFAULT_HEARTBEAT : 0);
-        this.heartbeatTimeout = client.getUrl().getParameter(Constants.HEARTBEAT_TIMEOUT_KEY, heartbeat * 3);
+
+        // 心跳检测参数
+        this.heartbeat =
+                client.getUrl().getParameter(
+                        Constants.HEARTBEAT_KEY, dubbo != null && dubbo.startsWith("1.0.") ?
+                                Constants.DEFAULT_HEARTBEAT : 0);
+        this.heartbeatTimeout =
+                client.getUrl().
+                        getParameter(Constants.HEARTBEAT_TIMEOUT_KEY, heartbeat * 3);
         if (heartbeatTimeout < heartbeat * 2) {
             throw new IllegalStateException("heartbeatTimeout < heartbeatInterval * 2");
         }
         if (needHeartbeat) {
+            // 开启心跳检测定时器
             startHeartbeatTimer();
         }
     }
@@ -194,6 +205,7 @@ public class HeaderExchangeClient implements ExchangeClient {
         }
     }
 
+    // 停止心跳检测定时器
     private void stopHeartbeatTimer() {
         if (heartbeatTimer != null && !heartbeatTimer.isCancelled()) {
             try {

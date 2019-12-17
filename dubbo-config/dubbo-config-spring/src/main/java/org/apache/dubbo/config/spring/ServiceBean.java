@@ -44,7 +44,7 @@ import java.util.Map;
 /**
  * ServiceFactoryBean
  *
- * @export
+ * ServiceBean 是 Dubbo 与 Spring 框架进行整合的关键，可以看做是两个框架之间的桥梁。具有同样作用的类还有 ReferenceBean。
  */
 public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean, DisposableBean, ApplicationContextAware, ApplicationListener<ContextRefreshedEvent>, BeanNameAware {
 
@@ -116,10 +116,19 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
 
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
+
+        /*
+         * 当Spring容器发布上下文刷新事件（容器启动的时候发布该时间），
+         * 则开始Dubbo服务的导出
+         */
+
+        // 如果是延迟导出 或者 已经导出过了 或者 已经取消导出，则不进行导出
         if (isDelay() && !isExported() && !isUnexported()) {
             if (logger.isInfoEnabled()) {
                 logger.info("The service ready on spring started. service: " + getInterface());
             }
+
+            // 导出服务
             export();
         }
     }

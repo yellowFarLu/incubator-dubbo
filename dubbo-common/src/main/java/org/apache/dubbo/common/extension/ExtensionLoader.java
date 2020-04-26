@@ -690,8 +690,12 @@ public class ExtensionLoader<T> {
     }
 
     private void loadDirectory(Map<String, Class<?>> extensionClasses, String dir, String type) {
+
+        // type是扩展接口的名字，比如com.alibaba.dubbo.rpc.Filter
         String fileName = dir + type;
+
         try {
+            // 定位资源链接
             Enumeration<java.net.URL> urls;
             ClassLoader classLoader = findClassLoader();
             if (classLoader != null) {
@@ -701,6 +705,7 @@ public class ExtensionLoader<T> {
             }
             if (urls != null) {
                 while (urls.hasMoreElements()) {
+                    // 通过资源链接加载具体实现类
                     java.net.URL resourceURL = urls.nextElement();
                     loadResource(extensionClasses, classLoader, resourceURL);
                 }
@@ -717,19 +722,29 @@ public class ExtensionLoader<T> {
             try {
                 String line;
                 while ((line = reader.readLine()) != null) {
+
+                    // #号后面认为是注释，所以不要了
                     final int ci = line.indexOf('#');
                     if (ci >= 0) line = line.substring(0, ci);
+
                     line = line.trim();
+
                     if (line.length() > 0) {
                         try {
                             String name = null;
                             int i = line.indexOf('=');
                             if (i > 0) {
+                                // =号前面是key，后面是具体实现类的全限定名
                                 name = line.substring(0, i).trim();
                                 line = line.substring(i + 1).trim();
                             }
                             if (line.length() > 0) {
-                                loadClass(extensionClasses, resourceURL, Class.forName(line, true, classLoader), name);
+                                /*
+                                 * 通过反射去加载该类
+                                 *
+                                 */
+                                loadClass(
+                                        extensionClasses, resourceURL, Class.forName(line, true, classLoader), name);
                             }
                         } catch (Throwable t) {
                             IllegalStateException e = new IllegalStateException("Failed to load extension class(interface: " + type + ", class line: " + line + ") in " + resourceURL + ", cause: " + t.getMessage(), t);
@@ -768,7 +783,10 @@ public class ExtensionLoader<T> {
             }
             wrappers.add(clazz);
         } else {
+            // 这句代码貌似是多余的？
             clazz.getConstructor();
+
+            //
             if (name == null || name.length() == 0) {
                 name = findAnnotationName(clazz);
                 if (name.length() == 0) {
@@ -793,6 +811,7 @@ public class ExtensionLoader<T> {
                     }
                     Class<?> c = extensionClasses.get(n);
                     if (c == null) {
+                        // 把key 和 具体实现类Class对象缓存起来
                         extensionClasses.put(n, clazz);
                     } else if (c != clazz) {
                         throw new IllegalStateException("Duplicate extension " + type.getName() + " name " + n + " on " + c.getName() + " and " + clazz.getName());

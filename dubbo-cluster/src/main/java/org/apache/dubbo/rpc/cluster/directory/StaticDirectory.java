@@ -83,7 +83,7 @@ public class StaticDirectory<T> extends AbstractDirectory<T> {
 
     @Override
     protected List<Invoker<T>> doList(Invocation invocation) throws RpcException {
-
+        // 列举 Inovker，也就是直接返回 invokers 成员变量
         return invokers;
     }
 

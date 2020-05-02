@@ -870,7 +870,7 @@ public class ExtensionLoader<T> {
         // 通过SPI获取所有的扩展类
         getExtensionClasses();
 
-        // 检查缓存，若缓存不为空，则直接返回缓存
+        // 检查缓存，若缓存不为空，则直接返回自适应扩展类缓存
         if (cachedAdaptiveClass != null) {
             return cachedAdaptiveClass;
         }

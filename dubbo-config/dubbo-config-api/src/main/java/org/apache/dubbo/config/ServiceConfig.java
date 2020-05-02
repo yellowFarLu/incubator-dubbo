@@ -95,9 +95,17 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
     // interface type
     private String interfaceName;
+
+    /**
+     * 接口的class对象
+     */
     private Class<?> interfaceClass;
-    // reference to interface impl
+
+    /*
+     * 接口实现类的引用
+     */
     private T ref;
+
     // service name
     private String path;
     // method configuration
@@ -219,6 +227,12 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
         // 如果 export 为 false，则不导出服务
         if (export != null && !export) {
+
+            /*
+             * 有时候我们只是想本地启动服务进行一些调试工作，我们并不希望把本地启动的服务暴露出去给别人调用。
+             * 此时，我们可通过配置 export 禁止服务导出
+             * <dubbo:provider export="false" />
+             */
             return;
         }
 
@@ -232,7 +246,8 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
             }, delay, TimeUnit.MILLISECONDS);
 
         } else {
-        // 立即导出服务
+
+            // 立即导出服务
             doExport();
         }
     }
@@ -308,8 +323,10 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         // ref 非 GenericService 类型
 
             try {
+                // 通过Class.forName来加载类
                 interfaceClass = Class.forName(interfaceName, true, Thread.currentThread()
                         .getContextClassLoader());
+
             } catch (ClassNotFoundException e) {
                 throw new IllegalStateException(e.getMessage(), e);
             }
@@ -436,6 +453,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         String name = protocolConfig.getName();
 
         // 如果协议名为空，或空串，则将协议名变量设置为 dubbo
+        // dubbo默认将服务导出为dubbo协议
         if (name == null || name.length() == 0) {
             name = "dubbo";
         }
@@ -598,6 +616,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         // 组装 URL
         URL url = new URL(name, host, port, (contextPath == null || contextPath.length() == 0 ? "" : contextPath + "/") + path, map);
 
+
         if (ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
                 .hasExtension(url.getProtocol())) {
             url = ExtensionLoader.getExtensionLoader(ConfiguratorFactory.class)
@@ -606,43 +625,55 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
         String scope = url.getParameter(Constants.SCOPE_KEY);
 
-        // 当scope设置为NONE，则不进行暴露
+        // 如果 scope = none，则什么都不做
         if (!Constants.SCOPE_NONE.equalsIgnoreCase(scope)) {
 
-            // 当scope没有设置成remote，暴露本地服务
+            // scope != remote，导出到本地
             if (!Constants.SCOPE_REMOTE.equalsIgnoreCase(scope)) {
                 exportLocal(url);
             }
 
-            // export to remote if the config is not local (export to local only when config is local)
+            // scope != local，导出到远程
             if (!Constants.SCOPE_LOCAL.equalsIgnoreCase(scope)) {
+
                 if (logger.isInfoEnabled()) {
                     logger.info("Export dubbo service " + interfaceClass.getName() + " to url " + url);
                 }
+
                 if (registryURLs != null && !registryURLs.isEmpty()) {
                     for (URL registryURL : registryURLs) {
+
                         url = url.addParameterIfAbsent(Constants.DYNAMIC_KEY, registryURL.getParameter(Constants.DYNAMIC_KEY));
+
+                        // 加载监视器链接
                         URL monitorUrl = loadMonitor(registryURL);
                         if (monitorUrl != null) {
+                            // 将监视器链接作为参数添加到 url 中
                             url = url.addParameterAndEncoded(Constants.MONITOR_KEY, monitorUrl.toFullString());
                         }
+
                         if (logger.isInfoEnabled()) {
                             logger.info("Register dubbo service " + interfaceClass.getName() + " url " + url + " to registry " + registryURL);
                         }
 
-                        // For providers, this is used to enable custom proxy to generate invoker
                         String proxy = url.getParameter(Constants.PROXY_KEY);
                         if (StringUtils.isNotEmpty(proxy)) {
                             registryURL = registryURL.addParameter(Constants.PROXY_KEY, proxy);
                         }
 
+                        // 为服务提供类(ref)生成 Invoker
                         Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, registryURL.addParameterAndEncoded(Constants.EXPORT_KEY, url.toFullString()));
-                        DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
 
+                        // DelegateProviderMetaDataInvoker 用于持有 Invoker 和 ServiceConfig
+                        DelegateProviderMetaDataInvoker wrapperInvoker =
+                                new DelegateProviderMetaDataInvoker(invoker, this);
+
+                        // 导出服务，并生成 Exporter
                         Exporter<?> exporter = protocol.export(wrapperInvoker);
                         exporters.add(exporter);
                     }
                 } else {
+                    // 不存在注册中心，仅导出服务
                     Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, url);
                     DelegateProviderMetaDataInvoker wrapperInvoker = new DelegateProviderMetaDataInvoker(invoker, this);
 
@@ -656,12 +687,15 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void exportLocal(URL url) {
+        // 如果 URL 的协议头等于 injvm，说明已经导出到本地了，无需再次导出
         if (!Constants.LOCAL_PROTOCOL.equalsIgnoreCase(url.getProtocol())) {
             URL local = URL.valueOf(url.toFullString())
+                    // 设置协议头为 injvm
                     .setProtocol(Constants.LOCAL_PROTOCOL)
                     .setHost(LOCALHOST)
                     .setPort(0);
             ServiceClassHolder.getInstance().pushServiceClass(getServiceClass(ref));
+            // 创建 Invoker，并导出服务，这里的 protocol 会在运行时调用 InjvmProtocol 的 export 方法
             Exporter<?> exporter = protocol.export(
                     proxyFactory.getInvoker(ref, (Class) interfaceClass, local));
             exporters.add(exporter);

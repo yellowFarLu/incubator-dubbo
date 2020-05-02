@@ -38,19 +38,24 @@ public class JavassistProxyFactory extends AbstractProxyFactory {
     @Override
     public <T> Invoker<T> getInvoker(T proxy, Class<T> type, URL url) {
 
-        final Wrapper wrapper = Wrapper.getWrapper(proxy.getClass().getName().indexOf('$') < 0 ? proxy.getClass() : type);
+        // 为目标类创建 Wrapper
+        final Wrapper wrapper =
+                Wrapper.getWrapper(proxy.getClass().getName().indexOf('$') < 0 ? proxy.getClass() : type);
 
-        // 创建匿名类对象
+        // 创建匿名 Invoker 类对象，并实现 doInvoke 方法。
         return new AbstractProxyInvoker<T>(proxy, type, url) {
             @Override
             protected Object doInvoke(T proxy, String methodName,
                                       Class<?>[] parameterTypes,
                                       Object[] arguments) throws Throwable {
 
-                // 调用 invokeMethod 方法进行后续的调用
+                // 调用 Wrapper 的 invokeMethod 方法，invokeMethod 最终会调用目标方法
                 return wrapper.invokeMethod(proxy, methodName, parameterTypes, arguments);
             }
         };
-    }
 
+        /*
+         * 调用invoker.doInvoke ——》  wrapper.invokeMethod ——》服务类ref的目标方法
+         */
+    }
 }

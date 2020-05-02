@@ -64,11 +64,12 @@ public class ZookeeperRegistry extends FailbackRegistry {
             throw new IllegalStateException("registry address == null");
         }
 
-        //获得到注册中心中的分组，默认dubbo
+        // 获取组名，默认为 dubbo
         String group = url.getParameter(Constants.GROUP_KEY, DEFAULT_ROOT);
 
         // 给组名加上"/"
         if (!group.startsWith(Constants.PATH_SEPARATOR)) {
+            // group = "/" + group
             group = Constants.PATH_SEPARATOR + group;
         }
 
@@ -76,7 +77,8 @@ public class ZookeeperRegistry extends FailbackRegistry {
         this.root = group;
 
         /*
-         *  使用zookeeperTansporter去连接
+         *  创建 Zookeeper 客户端，默认为 CuratorZookeeperTransporter
+         *
          *  ZookeeperTransport这里是生成的自适应实现
          *          如果<dubbo:registry的client属性设置为"zkclient"，则使用 ZkClientZookeeperTransporter
          *          默认使用：CuratorZookeeperTransporter
@@ -86,7 +88,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
          */
         zkClient = zookeeperTransporter.connect(url);
 
-        // 状态监听器
+        // 添加状态监听器
         zkClient.addStateListener(new StateListener() {
             @Override
             public void stateChanged(int state) {

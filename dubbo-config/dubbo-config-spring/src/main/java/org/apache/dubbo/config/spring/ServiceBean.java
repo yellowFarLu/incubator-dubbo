@@ -114,15 +114,13 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
         return service;
     }
 
+    /**
+     * onApplicationEvent 是一个事件响应方法，该方法会在收到 Spring 上下文刷新事件后执行服务导出操作。
+     */
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
 
-        /*
-         * 当Spring容器发布上下文刷新事件（容器启动的时候发布该时间），
-         * 则开始Dubbo服务的导出
-         */
-
-        // 如果是延迟导出 或者 已经导出过了 或者 已经取消导出，则不进行导出
+        // 是否有延迟导出 && 是否已导出 && 是不是已被取消导出
         if (isDelay() && !isExported() && !isUnexported()) {
             if (logger.isInfoEnabled()) {
                 logger.info("The service ready on spring started. service: " + getInterface());
@@ -133,13 +131,29 @@ public class ServiceBean<T> extends ServiceConfig<T> implements InitializingBean
         }
     }
 
+    /**
+     * 当isDelay方法返回 true 时，表示无需延迟导出。
+     * 返回 false 时，表示需要延迟导出。
+     * 与字面意思恰恰相反，这个需要大家注意一下。
+     */
     private boolean isDelay() {
+        // 获取 delay
         Integer delay = getDelay();
         ProviderConfig provider = getProvider();
         if (delay == null && provider != null) {
+            // 如果前面获取的 delay 为空，这里继续获取
             delay = provider.getDelay();
         }
+        // 判断 delay 是否为空，或者等于 -1
         return supportedApplicationListener && (delay == null || delay == -1);
+
+        /*
+         * supportedApplicationListener
+         * 该变量用于表示当前Spring容器是否支持ApplicationListener，这个值初始为 false。
+         * 在 Spring 容器将自己设置到 ServiceBean 中时，
+         * ServiceBean 的 setApplicationContext 方法会检测 Spring 容器是否支持 ApplicationListener。
+         * 若支持，则将 supportedApplicationListener 置为 true。
+         */
     }
 
     @Override

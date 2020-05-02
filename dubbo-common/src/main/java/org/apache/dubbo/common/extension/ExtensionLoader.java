@@ -1057,6 +1057,11 @@ public class ExtensionLoader<T> {
                  * 处理过程是将类名转换为字符数组，然后遍历字符数组，并将字符放入 StringBuilder 中。
                  * 若字符为大写字母，则向 StringBuilder 中添加点号，随后将字符变为小写存入 StringBuilder 中。
                  * 比如 LoadBalance 经过处理后，得到 load.balance。
+                 *
+                 * （1）通过value值来获取扩展名key
+                 * （2）value优先取注解上的value
+                 * （3）如果注解上的value为空，则把value数组会增加一个字段串，为接口名的小写，
+                 *        比如说有接口LoadBalance，则会字符串为"load.balance"
                  */
                 String[] value = adaptiveAnnotation.value();
 

@@ -58,7 +58,7 @@ public class NettyServer extends AbstractServer implements Server {
     private org.jboss.netty.channel.Channel channel;
 
     public NettyServer(URL url, ChannelHandler handler) throws RemotingException {
-        //handler先经过ChannelHandlers的包装方法，然后再初始化
+        // 调用父类构造方法
         super(url, ChannelHandlers.wrap(handler, ExecutorUtil.setThreadName(url, SERVER_THREAD_POOL_NAME)));
     }
 
@@ -75,15 +75,14 @@ public class NettyServer extends AbstractServer implements Server {
         // ChannelFactory，没有指定工作者线程数量，就使用cpu+1
         ChannelFactory channelFactory = new NioServerSocketChannelFactory(boss, worker, getUrl().getPositiveParameter(Constants.IO_THREADS_KEY, Constants.DEFAULT_IO_THREADS));
 
+        // 创建 ServerBootstrap（这里面是Netty的代码逻辑了）
         bootstrap = new ServerBootstrap(channelFactory);
 
         final NettyHandler nettyHandler = new NettyHandler(getUrl(), this);
         channels = nettyHandler.getChannels();
-        // https://issues.jboss.org/browse/NETTY-365
-        // https://issues.jboss.org/browse/NETTY-379
-        // final Timer timer = new HashedWheelTimer(new NamedThreadFactory("NettyIdleTimer", true));
         bootstrap.setOption("child.tcpNoDelay", true);
 
+        // 设置 PipelineFactory
         bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
             @Override
             public ChannelPipeline getPipeline() {
@@ -100,7 +99,7 @@ public class NettyServer extends AbstractServer implements Server {
             }
         });
 
-        // bind之后返回一个Channel
+        // 绑定到指定的 ip 和端口上
         channel = bootstrap.bind(getBindAddress());
     }
 

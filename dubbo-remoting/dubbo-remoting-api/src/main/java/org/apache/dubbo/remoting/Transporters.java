@@ -51,13 +51,16 @@ public class Transporters {
         if (handlers.length == 1) {
             handler = handlers[0];
         } else {
-            // 如果有多个handler的话，需要使用分发器包装下
+            // 如果 handlers 元素数量大于1，则创建 ChannelHandler 分发器
             handler = new ChannelHandlerDispatcher(handlers);
         }
 
         /*
-         *  getTransporter()获取一个Adaptive的Transporter
-         *  然后调用bind方法（默认是NettyTransporter的bind方法）
+         * 获取自适应 Transporter 实例，并调用实例方法
+         * getTransporter() 方法获取的 Transporter 是在运行时动态创建的，
+         * 类名为 TransporterAdaptive，也就是自适应拓展类。
+         * TransporterAdaptive 会在运行时根据传入的 URL 参数决定加载什么类型的 Transporter，
+         * 默认为 NettyTransporter。
          */
         return getTransporter().bind(url, handler);
     }

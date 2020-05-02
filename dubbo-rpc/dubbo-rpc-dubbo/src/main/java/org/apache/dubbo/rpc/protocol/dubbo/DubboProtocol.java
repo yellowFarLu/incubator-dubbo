@@ -271,30 +271,18 @@ public class DubboProtocol extends AbstractProtocol {
         // 获取需要暴露的url
         URL url = invoker.getUrl();
 
-        /*
-         * 通过url获取key
-         *
-         * key的例子：com.huang.yuan.api.service.DemoService2:1.0:23801
-         * 在服务调用的时候，同样通过这个key获取exporter
-         */
+        // 获取服务标识，理解成服务坐标也行。由服务组名，服务名，服务版本号以及端口组成。比如：
+        // demoGroup/com.alibaba.dubbo.demo.DemoService:1.0.1:20880
+        // 在服务调用的时候，同样通过这个key获取exporter
         String key = serviceKey(url);
 
-        // 生成exporter实例
+        // 创建 DubboExporter
         DubboExporter<T> exporter = new DubboExporter<T>(invoker, key, exporterMap);
 
-        // 缓存exporter
+        // 将 <key, exporter> 键值对放入缓存中
         exporterMap.put(key, exporter);
 
-        /*
-         * todo 没理解 Constants.STUB_EVENT_KEY
-         *  是否支持本地存根
-         *  项目使用远程服务后，客户端通常只剩下接口，而实现全在服务器端
-         *
-         *  但提供方有些时候想在客户端也执行部分逻辑，
-         *      比如：做ThreadLocal缓存，提前验证参数，调用失败后伪造容错数据等等，此时就需要在API中带上Stub
-         *
-         *  客户端生成Proxy实例，会把Proxy通过构造函数传给Stub，然后把Stub暴露给用户，Stub可以决定要不要去调Proxy
-         */
+        // 本地存根相关代码
         Boolean isStubSupportEvent = url.getParameter(Constants.STUB_EVENT_KEY, Constants.DEFAULT_STUB_EVENT);
 
         // 是否回调服务
@@ -312,23 +300,25 @@ public class DubboProtocol extends AbstractProtocol {
             }
         }
 
-        // 根据URL绑定IP与端口，建立NIO框架的Server
+        // 启动服务器
         openServer(url);
 
+        // 优化序列化
         optimizeSerialization(url);
 
         return exporter;
     }
 
     private void openServer(URL url) {
-        // key = ip : port
+        // 获取 host:port，并将其作为服务器实例的 key，用于标识当前的服务器实例
+        // key = host : port
         String key = url.getAddress();
 
-        // todo client 也可以暴露一个只有server可以调用的服务
         boolean isServer = url.getParameter(Constants.IS_SERVER_KEY, true);
 
         if (isServer) {
 
+            // 访问缓存
             ExchangeServer server = serverMap.get(key);
 
             /*
@@ -340,15 +330,13 @@ public class DubboProtocol extends AbstractProtocol {
                 synchronized (this) {
                     server = serverMap.get(key);
                     if (server == null) {
-                        serverMap.put(key, createServer(url));
+                        // 创建服务器实例
+                        serverMap.put(key,
+                                createServer(url));
                     }
                 }
             } else {
-                /*
-                 *  server支持reset,配合override功能使用
-                 *  accept、idleTimeout、threads、heartbeat参数的变化会引起Server的属性发生变化
-                 *  这时需要重新设置Server
-                 */
+                // 服务器已创建，则根据 url 中的配置重置服务器
                 server.reset(url);
             }
         }
@@ -359,38 +347,37 @@ public class DubboProtocol extends AbstractProtocol {
         // server关闭时发送readonly事件
         url = url.addParameterIfAbsent(Constants.CHANNEL_READONLYEVENT_SENT_KEY, Boolean.TRUE.toString());
 
-        // 默认开启heartbeat
+        // 添加心跳检测配置到 url 中
         url = url.addParameterIfAbsent(Constants.HEARTBEAT_KEY, String.valueOf(Constants.DEFAULT_HEARTBEAT));
 
-        // 服务器 默认使用netty
+        // 获取 server 参数，默认为 netty
         String str = url.getParameter(Constants.SERVER_KEY, Constants.DEFAULT_REMOTING_SERVER);
 
+        // 通过 SPI 检测是否存在 server 参数所代表的 Transporter 拓展，不存在则抛出异常
         if (str != null && str.length() > 0 && !ExtensionLoader.getExtensionLoader(Transporter.class).hasExtension(str))
             throw new RpcException("Unsupported server type: " + str + ", url: " + url);
 
+        // 添加编码解码器参数
         url = url.addParameter(Constants.CODEC_KEY, DubboCodec.NAME);
 
         ExchangeServer server;
         try {
-            /*
-             *  Exchangers是门面类，里面封装的是Exchanger的逻辑
-             *
-             *  Exchanger默认只有一个实现 HeaderExchanger
-             *  Exchanger负责数据交换和网络通信
-             *  从Protocol进入Exchanger，标志着程序进入了remote层
-             *
-             *  这里requestHandler是ExchangeHandlerAdapter
-             */
+            // 创建服务器实例
             server = Exchangers.bind(url, requestHandler);
 
         } catch (RemotingException e) {
             throw new RpcException("Fail to start server(url: " + url + ") " + e.getMessage(), e);
         }
 
+        // 获取 client 参数，可指定 netty，mina
         str = url.getParameter(Constants.CLIENT_KEY);
 
         if (str != null && str.length() > 0) {
+            // 获取所有的 Transporter 实现类名称集合，比如 supportedTypes = [netty, mina]
             Set<String> supportedTypes = ExtensionLoader.getExtensionLoader(Transporter.class).getSupportedExtensions();
+
+            // 检测当前 Dubbo 所支持的 Transporter 实现类名称列表中，
+            // 是否包含 client 所表示的 Transporter，若不包含，则抛出异常
             if (!supportedTypes.contains(str)) {
                 throw new RpcException("Unsupported client type: " + str);
             }

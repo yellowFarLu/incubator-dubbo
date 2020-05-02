@@ -36,8 +36,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Failover
- * 当invoker调用失败，打印错误日志，并且重试其他invoker
+ * FailoverClusterInvoker 在调用失败时，会自动切换 Invoker 进行重试。
+ * 默认配置下，Dubbo 会使用这个类作为缺省 Cluster Invoker。
  * 重试将导致时延
  */
 public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
@@ -51,7 +51,7 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Result doInvoke(Invocation invocation, final List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
-        // 局部引用
+
         List<Invoker<T>> copyinvokers = invokers;
 
         // 参数校验
@@ -77,24 +77,33 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
         // i < len 作为循环条件，说明len是多少就循环多少次（len等于 重试次数 + 1）
         for (int i = 0; i < len; i++) {
             if (i > 0) {
+
                 // 检查invoker是否被销毁
                 checkWhetherDestroyed();
-                // 重新选择invoker（在重试之前，需要重新选择，以避免候选invoker的改变）
+
+                // 在进行重试前重新列举 Invoker，这样做的好处是，如果某个服务挂了，
+                // 通过调用 list 可得到最新可用的 Invoker 列表
                 copyinvokers = list(invocation);
-                // 参数检查
+
+                // 对 copyinvokers 进行判空检查
                 checkInvokers(copyinvokers, invocation);
             }
 
             /*
-             * 这一步就是进入loadBalance负载均衡
+             * 通过负载均衡选择 Invoker
              * 因为上述步骤可能筛选出invoker数量大于1，所以再次经过loadBalance的筛选（同时避免获取到已经调用过的invoker）
              */
             Invoker<T> invoker = select(loadbalance, invocation, copyinvokers, invoked);
+
+            // 添加到 invoker 到 invoked 列表中
             invoked.add(invoker);
 
+            // 设置 invoked 到 RPC 上下文中
             RpcContext.getContext().setInvokers((List) invoked);
+
             try {
-                // 远程方法调用
+                // 调用目标 Invoker 的 invoke 方法
+                // 即远程方法调用
                 Result result = invoker.invoke(invocation);
                 if (le != null && logger.isWarnEnabled()) {
                     logger.warn("Although retry the method " + methodName
@@ -122,7 +131,7 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
             }
         }
 
-        // 能到这里，说明都失败了，providers保存失败的invoker地址
+        // 若重试失败，则抛出异常
         throw new RpcException(le != null ? le.getCode() : 0, "Failed to invoke the method "
                 + methodName + " in the service " + getInterface().getName()
                 + ". Tried " + len + " times of the providers " + providers

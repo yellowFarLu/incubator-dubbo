@@ -36,9 +36,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Invoke a specific number of invokers concurrently, usually used for demanding real-time operations, but need to waste more service resources.
+ * ForkingClusterInvoker 会在运行时通过线程池创建多个线程，并发调用多个服务提供者。
+ * 只要有一个服务提供者成功返回了结果，doInvoke 方法就会立即结束运行。
  *
- * <a href="http://en.wikipedia.org/wiki/Fork_(topology)">Fork</a>
+ * 应用场景是在一些对实时性要求比较高读操作（注意是读操作，并行写操作可能不安全）下使用，但这将会耗费更多的资源。
  */
 public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
@@ -58,47 +59,82 @@ public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
     public Result doInvoke(final Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         try {
             checkInvokers(invokers, invocation);
+
             final List<Invoker<T>> selected;
+
+            // 获取 forks 配置，forks表示并发数量
             final int forks = getUrl().getParameter(Constants.FORKS_KEY, Constants.DEFAULT_FORKS);
+
+            // 获取超时配置
             final int timeout = getUrl().getParameter(Constants.TIMEOUT_KEY, Constants.DEFAULT_TIMEOUT);
+
+            // 如果 forks 配置不合理，则直接将 invokers 赋值给 selected
             if (forks <= 0 || forks >= invokers.size()) {
                 selected = invokers;
             } else {
                 selected = new ArrayList<Invoker<T>>();
+
+                // 循环选出 forks 个 Invoker，并添加到 selected 中
                 for (int i = 0; i < forks; i++) {
-                    // TODO. Add some comment here, refer chinese version for more details.
                     Invoker<T> invoker = select(loadbalance, invocation, invokers, selected);
                     if (!selected.contains(invoker)) {//Avoid add the same invoker several times.
                         selected.add(invoker);
                     }
                 }
             }
+
             RpcContext.getContext().setInvokers((List) selected);
+            // count一开始的值是0
             final AtomicInteger count = new AtomicInteger();
             final BlockingQueue<Object> ref = new LinkedBlockingQueue<Object>();
+
+            // 遍历 selected 列表
             for (final Invoker<T> invoker : selected) {
+
+                // 为每个 Invoker 创建一个执行线程
                 executor.execute(new Runnable() {
                     @Override
                     public void run() {
                         try {
+                            // 进行远程调用
                             Result result = invoker.invoke(invocation);
+                            // 将结果存到阻塞队列中
                             ref.offer(result);
                         } catch (Throwable e) {
+
+                            // 仅在 value 大于等于 selected.size() 时，才将异常对象
+                            // 放入阻塞队列中，请大家思考一下为什么要这样做。
                             int value = count.incrementAndGet();
                             if (value >= selected.size()) {
+                                // 将异常对象存入到阻塞队列中
                                 ref.offer(e);
                             }
+
+                            /*
+                             * 为什么要在value >= selected.size()的情况下，才将异常对象添加到阻塞队列中？
+                             * 这里来解答一下。原因是这样的，在并行调用多个服务提供者的情况下，只要有一个服务提供者能够成功返回结果，
+                             * 而其他全部失败。此时 ForkingClusterInvoker 仍应该返回成功的结果，而非抛出异常。
+                             * 在value >= selected.size()时将异常对象放入阻塞队列中，可以保证异常对象不会出现在正常结果的前面，
+                             * 这样可从阻塞队列中优先取出正常的结果。
+                             */
                         }
                     }
                 });
             }
+
             try {
+                // 从阻塞队列中取出远程调用结果
                 Object ret = ref.poll(timeout, TimeUnit.MILLISECONDS);
+
+                // 如果结果类型为 Throwable，则抛出异常
                 if (ret instanceof Throwable) {
                     Throwable e = (Throwable) ret;
                     throw new RpcException(e instanceof RpcException ? ((RpcException) e).getCode() : 0, "Failed to forking invoke provider " + selected + ", but no luck to perform the invocation. Last error is: " + e.getMessage(), e.getCause() != null ? e.getCause() : e);
                 }
+
+                // 返回结果
                 return (Result) ret;
+
             } catch (InterruptedException e) {
                 throw new RpcException("Failed to forking invoke provider " + selected + ", but no luck to perform the invocation. Last error is: " + e.getMessage(), e);
             }

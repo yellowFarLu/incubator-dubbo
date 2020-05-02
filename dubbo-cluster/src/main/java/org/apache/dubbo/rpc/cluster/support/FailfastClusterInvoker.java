@@ -28,11 +28,8 @@ import org.apache.dubbo.rpc.cluster.LoadBalance;
 import java.util.List;
 
 /**
- * 快速失败
- * Failfast可以理解为只发起一次调用，若失败则立即报错
- * 通常用于非幂等写操作
- *
- * <a href="http://en.wikipedia.org/wiki/Fail-fast">Fail-fast</a>
+ * FailfastClusterInvoker 只会进行一次调用，失败后立即抛出异常。
+ * 适用于幂等操作，比如新增记录。
  *
  */
 public class FailfastClusterInvoker<T> extends AbstractClusterInvoker<T> {
@@ -44,9 +41,12 @@ public class FailfastClusterInvoker<T> extends AbstractClusterInvoker<T> {
     @Override
     public Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         checkInvokers(invokers, invocation);
+
+        // 选择 Invoker
         Invoker<T> invoker = select(loadbalance, invocation, invokers, null);
+
         try {
-            // 成功直接往下执行
+            // 调用 Invoker
             return invoker.invoke(invocation);
         } catch (Throwable e) {
             // 失败抛出异常，不做别的处理

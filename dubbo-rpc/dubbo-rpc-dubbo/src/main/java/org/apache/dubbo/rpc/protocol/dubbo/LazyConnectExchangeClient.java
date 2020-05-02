@@ -80,6 +80,7 @@ final class LazyConnectExchangeClient implements ExchangeClient {
     @Override
     public ResponseFuture request(Object request) throws RemotingException {
         warning(request);
+        // 懒加载ExchangeClient就是在请求的时候，采取初始化ExchangClient
         initClient();
         return client.request(request);
     }

@@ -474,6 +474,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
                             map.put(Constants.MONITOR_KEY, URL.encode(monitorUrl.toFullString()));
                         }
                         // 添加 refer 参数到 url 中，并将 url 添加到 urls 中
+                        // 想要引用哪些服务，把服务信息添加url中
                         urls.add(u.addParameterAndEncoded(Constants.REFER_KEY, StringUtils.toQueryString(map)));
                     }
                 }

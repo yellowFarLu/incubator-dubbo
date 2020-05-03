@@ -41,7 +41,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
     @Override
     protected <T> Invoker<T> doSelect(List<Invoker<T>> invokers, URL url, Invocation invocation) {
 
-        // 获取接口名称
+        // key = 全限定类名 + "." + 方法名，比如 com.xxx.DemoService.sayHello
         String key = invokers.get(0).getUrl().getServiceKey() + "." + invocation.getMethodName();
 
         // 获取invoker的个数
@@ -49,6 +49,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
 
         // 记录最大权重
         int maxWeight = 0;
+
         // 记录最小的权重
         int minWeight = Integer.MAX_VALUE;
 
@@ -58,6 +59,7 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
         // 权重总和
         int weightSum = 0;
 
+        // 下面这个循环主要用于查找最大和最小权重，计算权重总和等
         for (int i = 0; i < length; i++) {
 
             // 获取invoker的权重
@@ -70,40 +72,48 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
 
             if (weight > 0) {
                 invokerToWeightMap.put(invokers.get(i), new IntegerWrapper(weight));
+                // 计算权重总和
                 weightSum += weight;
             }
         }
 
-        // 获取一个自动增长的序号
+        // AtomicPositiveInteger 用于记录服务的调用编号即可
+        // 比如说第一个调用服务器1，则AtomicPositiveInteger等于1
+        // 第二次调用服务器2，则AtomicPositiveInteger等于2
         AtomicPositiveInteger sequence = sequences.get(key);
-
         if (sequence == null) {
             // 没有则新建
             sequences.putIfAbsent(key, new AtomicPositiveInteger());
             sequence = sequences.get(key);
         }
 
-        // 有请求过来，则sequence增加1
+        // 获取当前的调用编号
         int currentSequence = sequence.getAndIncrement();
 
-        // 如果最大权重大于0，最小权重小于最大权重（权重不相等）
+        // 如果最小权重小于最大权重，表明服务提供者之间的权重是不相等的
         if (maxWeight > 0 && minWeight < maxWeight) {
 
-            // currentSequence与总权重取模的结果
+            // 使用调用编号对权重总和进行取余操作
             int mod = currentSequence % weightSum;
 
+            // 进行 maxWeight 次遍历
             for (int i = 0; i < maxWeight; i++) {
 
+                // 遍历 invokerToWeightMap
                 for (Map.Entry<Invoker<T>, IntegerWrapper> each : invokerToWeightMap.entrySet()) {
 
+                    // 获取 Invoker
                     final Invoker<T> k = each.getKey();
 
+                    // 获取权重包装类 IntegerWrapper
                     final IntegerWrapper v = each.getValue();
 
+                    // 如果 mod = 0，且权重大于0，此时返回相应的 Invoker
                     if (mod == 0 && v.getValue() > 0) {
                         return k;
                     }
 
+                    // mod != 0，且权重大于0，此时对权重和 mod 分别进行自减操作
                     if (v.getValue() > 0) {
                         // 权重值减1
                         v.decrement();
@@ -114,10 +124,11 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
             }
         }
 
-        // 取模，获取一个invoker
+        // 服务提供者之间的权重相等，此时通过轮询选择 Invoker
         return invokers.get(currentSequence % length);
     }
 
+    // IntegerWrapper 是一个 int 包装类，主要包含了一个自减方法。
     private static final class IntegerWrapper {
         private int value;
 
@@ -137,5 +148,6 @@ public class RoundRobinLoadBalance extends AbstractLoadBalance {
             this.value--;
         }
     }
+
 
 }

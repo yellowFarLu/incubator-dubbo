@@ -58,14 +58,19 @@ public class RandomLoadBalance extends AbstractLoadBalance {
             }
         }
 
-
+        // 下面的 if 分支主要用于获取随机数，并计算随机数落在哪个区间上
         if (totalWeight > 0 && !sameWeight) {
             // 至少有一个invoker不一样，并且至少一个invoker的权重大于0，则在总权重的基础上 随机 选择一个invoker
 
-            // 从[0，totalWeight]这个区间 随机选择一个值
+            // 随机获取一个 [0, totalWeight) 区间内的数字
             int offset = random.nextInt(totalWeight);
 
-            // 根据偏移选出一个invoker
+            // 循环让 offset 数减去服务提供者权重值，当 offset 小于0时，返回相应的 Invoker。
+            // 举例说明一下，我们有 servers = [A, B, C]，weights = [5, 3, 2]，offset = 7。
+            // 第一次循环，offset - 5 = 2 > 0，即 offset > 5，
+            // 表明其不会落在服务器 A 对应的区间上。
+            // 第二次循环，offset - 3 = -1 < 0，即 5 < offset < 8，
+            // 表明其会落在服务器 B 对应的区间上
             for (int i = 0; i < length; i++) {
                 offset -= getWeight(invokers.get(i), invocation);
                 if (offset < 0) {
